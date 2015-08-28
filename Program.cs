@@ -119,11 +119,13 @@ contains item scores.";
 #endif
             }
 
+	    /*
             if (Win32Interop.ConsoleHelper.IsSoleConsoleOwner)
             {
                 Console.Write("Press any key to exit.");
                 Console.ReadKey(true);
             }
+	    */
         }
 
         static void ProcessInputFilename(string filenamePattern, ITestResultProcessor processor)
