@@ -63,7 +63,15 @@ contains item scores.";
                                 osFilename = filename;
                             }
                             break;
-
+			case "-d":
+			    {
+                                ++i;
+                                if (i >= args.Length) throw new ArgumentException("Invalid command line. '-d' option not followed by directory.");
+				string [] fileEntries = Directory.GetFiles(args[i]);
+				foreach(string fileName in fileEntries)
+					inputFilenames.Add(fileName);
+			    }
+                            break;
                         case "-oi":
                             {
                                 ++i;
