@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.IO.Compression;
 
 namespace TabulateSmarterTestResults
 {
@@ -27,7 +28,45 @@ contains test results including student information and test scores.
 
  -oi <output file>
 Output file for item results. This will be a .csv formatted file that
-contains item scores.";
+contains item scores.
+
+ -hid <passphrase>
+Hash the Student ID using the specified passphrase as a key. And place the
+result in the AlternateSSID (ExternalSSID) field. This is usually combined
+with de-identification See below for details of the hashing algorithm.
+
+ -did <flags>
+De-identify the data by setting certain fields to blank. The flags indicate
+which fields should be set to blank. See below for details.
+
+Student ID Hash:
+The Student ID hash is prepared as follows:
+ 1. The passphrase is encoded into UTF8 and hashed into a 160-bit key using
+    the SHA1 algorithm. Case is preserved.
+ 2. The student id is encoded into UTF8 and hashed into a 160-bit digest
+    using the key and the HMAC-SHA1 algorithm.
+ 3. The resulting hash from step 2 is converted to an upper-case hexadecimal
+    string.
+ 4. The hexadecimal string is placed in the AlternateSSID (ExternalSSID)
+    field replacing any existing contents.
+
+The De-Identification Option (-did):
+One or more of the following flags should follow the -did option.
+A space should be between -did and the flags. No space should be between
+the flags. For example, ""-did inb"" When values are removed, the fields
+are set to blank. Since the sensitivity of student groups is unknown any
+de-identification option will cause student groups to be removed.
+
+ i  Replace the StudentID with the AlternateSSID. If the AlternateSSID
+    is blank then StudentID will be blank in both the student and item
+    files. If the -hid is specified then the the newly generated
+    AlternateSSID will be used for both AlternateSSID and StudentID.
+ n  Remove first, middle, and last names.
+ b  Remove birthdate.
+ d  Remove demographic information (gender, race, ethnicity)
+ s  Remove school and district information. Also removes session location
+    id and name.
+";
 
         static void Main(string[] args)
         {
@@ -36,6 +75,8 @@ contains item scores.";
                 List<string> inputFilenames = new List<string>();
                 string osFilename = null;
                 string oiFilename = null;
+                string hashPassPhrase = null;
+                DIDFlags didFlags = DIDFlags.None;
                 bool help = false;
 
                 for (int i=0; i<args.Length; ++i)
@@ -82,6 +123,50 @@ contains item scores.";
                             }
                             break;
 
+                        case "-hid":
+                            {
+                                if (i >= args.Length) throw new ArgumentException("Invalid command line. '-hid' option not followed by passphrase.");
+                                ++i;
+                                hashPassPhrase = args[i];
+                            }
+                            break;
+
+                        case "-did":
+                            {
+                                if (i >= args.Length) throw new ArgumentException("Invalid command line. '-did' option not followed by flags.");
+                                ++i;
+                                foreach (char c in args[i])
+                                {
+                                    switch (Char.ToLowerInvariant(c))
+                                    {
+                                        case 'i':
+                                            didFlags |= DIDFlags.Id;
+                                            break;
+                                                
+                                        case 'n':
+                                            didFlags |= DIDFlags.Name;
+                                            break;
+
+                                        case 'b':
+                                            didFlags |= DIDFlags.Birthdate;
+                                            break;
+
+                                        case 'd':
+                                            didFlags |= DIDFlags.Demographics;
+                                            break;
+
+                                        case 's':
+                                            didFlags |= DIDFlags.School;
+                                            break;
+
+                                        default:
+                                            throw new ArgumentException(string.Format("Invalid command line. '.did' flag '{0}' is undefined.", c));
+                                    }
+                                }
+
+                            }
+                            break;
+
                         default:
                             throw new ArgumentException(string.Format("Unknown command line option '{0}'. Use '-h' for syntax help.", args[i]));
                     }
@@ -100,8 +185,11 @@ contains item scores.";
                         Console.WriteLine("Writing student assessment results to: " + osFilename);
                     if (oiFilename != null)
                         Console.WriteLine("Writing item level results to: " + oiFilename);
-                    using (ITestResultProcessor processor = new ToCsvProcessor(osFilename, oiFilename))
+                    using (ToCsvProcessor processor = new ToCsvProcessor(osFilename, oiFilename))
                     {
+                        processor.HashPassPhrase = hashPassPhrase;
+                        processor.DIDFlags = didFlags;
+
                         foreach (string filename in inputFilenames)
                         {
                             ProcessInputFilename(filename, processor);
@@ -167,9 +255,35 @@ contains item scores.";
         static void ProcessInputZipFile(string filename, ITestResultProcessor processor)
         {
             Console.WriteLine("Processing: " + filename);
+            using (ZipArchive zip = ZipFile.Open(filename, ZipArchiveMode.Read))
+            {
+                foreach(ZipArchiveEntry entry in zip.Entries)
+                {
+                    // Must not be folder (empty name) and must have .xml extension
+                    if (!string.IsNullOrEmpty(entry.Name) && Path.GetExtension(entry.Name).Equals(".xml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("   Processing: " + entry.FullName);
+                        using (Stream stream = entry.Open())
+                        {
+                            processor.ProcessResult(stream);
+                        }
+                    }
+                }
+            }
             Console.WriteLine();
         }
 
+    }
+
+    [Flags]
+    enum DIDFlags : int
+    {
+        None = 0,
+        Id = 1,             // Student ID
+        Name = 2,           // Student Name
+        Birthdate = 4,
+        Demographics = 8,   // Sex, Race, Ethnicity
+        School = 16          // School and districtID or ExternalSSID is unaffected
     }
 
     interface ITestResultProcessor : IDisposable
