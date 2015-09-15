@@ -271,6 +271,22 @@ namespace TabulateSmarterTestResults
             }
         }
 
+	private string transformBirthday(string bday)
+	{
+
+		//Console.WriteLine("bday is " + bday);
+		//Console.WriteLine("bday length is " + bday.Length);
+		if (bday.Length == 0) {
+			return bday;
+		}
+		string mon = bday.Substring(0, 2);
+		string day = bday.Substring(2, 2);
+		string year = bday.Substring(4,4);
+		bday = string.Format("{0}/{1}/{2}", mon, day, year);
+		//Console.WriteLine("bday is " + bday);
+		return bday;
+	}
+
         public void ProcessResult(Stream input)
         {
             XPathDocument doc = new XPathDocument(input);
@@ -292,7 +308,7 @@ namespace TabulateSmarterTestResults
             studentFields[9] = nav.Eval(sXp_LastOrSurname);
             string sex = nav.Eval(sXp_Sex);
             studentFields[10] = (sex.Length > 0 && (sex[0] == 'M' || sex[0] == 'm')) ? "Male" : "Female";
-            studentFields[11] = nav.Eval(sXp_Birthdate);
+            studentFields[11] = this.transformBirthday(nav.Eval(sXp_Birthdate));
             studentFields[12] = nav.Eval(sXp_GradeLevelWhenAssessed);
             studentFields[13] = nav.Eval(sXp_HispanicOrLatinoEthnicity);
             studentFields[14] = nav.Eval(sXp_AmericanIndianOrAlaskaNative);
@@ -331,9 +347,13 @@ namespace TabulateSmarterTestResults
             studentFields[45] = nav.Eval(sXp_AssessmentId);
             studentFields[46] = nav.Eval(sXp_TestSessionId);
             studentFields[47] = string.Empty; // AssessmentLocation
-            studentFields[48] = string.Empty; // AssessmentAdministrationFinishDate
-            studentFields[49] = nav.Eval(sXp_SchoolYear);
-            studentFields[50] = nav.Eval(sXp_AssessmentType);
+            studentFields[48] = "2015-06-07";
+		//nav.Eval(sXp_SchoolYear);
+		// hardcode this for us string.Empty; // AssessmentAdministrationFinishDate
+            studentFields[49] = "2015";
+		// nav.Eval(sXp_SchoolYear);
+            studentFields[50] = "SUMMATIVE";
+		// this is broken since our ART is giving us empty strings nav.Eval(sXp_AssessmentType);
             studentFields[51] = nav.Eval(sXp_Subject);
             studentFields[52] = nav.Eval(sXp_TestGrade);
             ProcessScores(nav, sXp_ScaleScore, sXp_ScaleScoreStandardError, sXp_ScaleScoreAchievementLevel, studentFields, 53);
