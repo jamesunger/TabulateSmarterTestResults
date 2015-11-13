@@ -88,7 +88,7 @@ namespace TabulateSmarterTestResults
             "AssessmentSubtestClaim4MinimumValue",
             "AssessmentSubtestClaim4MaximumValue",
             "AssessmentClaim4PerformanceLevelIdentifier",
-            "AccommodationAmericanSignLanguage",
+            "AccommodationAmericanSignLanguage", // 73
             "AccommodationBraille",
             "AccommodationClosedCaptioning",
             "AccommodationTextToSpeech",
@@ -102,7 +102,11 @@ namespace TabulateSmarterTestResults
             "AccommodationScribe",
             "AccommodationSpeechToText",
             "AccommodationStreamlineMode",
-            "AccommodationNoiseBuffer"
+            "AccommodationNoiseBuffer",
+            "OpportunityId", // 88
+            "OpportunityKey",
+            "Status",
+            "StatusDate"
         };
 
         static string[] sItemFieldNames = new string[]
@@ -124,7 +128,7 @@ namespace TabulateSmarterTestResults
             "pageNumber",
             "pageVisits",
             "pageTime",
-            "dropped"
+            "dropped",
         };
 
         static XPathExpression sXp_StateAbbreviation = XPathExpression.Compile("/TDSReport/Examinee/ExamineeRelationship[@name='StateAbbreviation' and @context='FINAL']/@value");
@@ -180,6 +184,10 @@ namespace TabulateSmarterTestResults
         static XPathExpression sXp_ClaimScore4AchievementLevel = XPathExpression.Compile("/TDSReport/Opportunity/Score[@measureOf='4-CR' and @measureLabel='PerformanceLevel']/@value");
         // Matches all accessibility codes
         static XPathExpression sXP_AccessibilityCodes = XPathExpression.Compile("/TDSReport/Opportunity/Accommodation/@code");
+        static XPathExpression sXp_OpportunityId = XPathExpression.Compile("/TDSReport/Opportunity/@oppId");
+        static XPathExpression sXp_OpportunityKey = XPathExpression.Compile("/TDSReport/Opportunity/@key");
+        static XPathExpression sXp_Status = XPathExpression.Compile("/TDSReport/Opportunity/@status");
+        static XPathExpression sXp_StatusDate = XPathExpression.Compile("/TDSReport/Opportunity/@statusDate");
 
         // Item Level Data
         static XPathExpression sXP_Item = XPathExpression.Compile("/TDSReport/Opportunity/Item");
@@ -363,7 +371,14 @@ namespace TabulateSmarterTestResults
             ProcessScores(nav, sXp_ClaimScore4, sXp_ClaimScore4StandardError, sXp_ClaimScore4AchievementLevel, studentFields, 69);
 
             // Preload accommodation fields with "3" (accessibility feature not made available)
-            for (int i = 73; i < sStudentFieldNames.Length; ++i) studentFields[i] = "3";
+            for (int i = 73; i < 88; ++i) studentFields[i] = "3";
+
+            // Additional fields
+            // Note, these fields are not included in the Data Warehouse specifications. This is a temporary fix with a new format to follow.
+            studentFields[88] = nav.Eval(sXp_OpportunityId);
+            studentFields[89] = nav.Eval(sXp_OpportunityKey);
+            studentFields[90] = nav.Eval(sXp_Status);
+            studentFields[91] = nav.Eval(sXp_StatusDate).Replace('T', ' ');
 
             // Process accommodations
             {
