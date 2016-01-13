@@ -5,11 +5,22 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 
 namespace TabulateSmarterTestResults
 {
     class Program
     {
+ 	static readonly UTF8Encoding UTF8NoByteOrderMark = new UTF8Encoding(false);
+
+	static string ByteArrayToHexString(byte[] inputArray)
+        {
+            if (inputArray == null) return null;
+            StringBuilder o = new StringBuilder();
+            for (int i = 0; i < inputArray.Length; i++) o.Append(inputArray[i].ToString("X2"));
+            return o.ToString();
+        }
+
 
         static string sSyntax =
 @"This tool tabulates XML test results files in SmarterApp Test Results
@@ -89,6 +100,7 @@ TabulateSmarterTestResults.exe -i testresults.zip -os studentresults.csv -oi ite
                 string osFilename = null;
                 string oiFilename = null;
                 string hashPassPhrase = null;
+		string didcsv = null;
                 DIDFlags didFlags = DIDFlags.None;
                 OutputFormat outputFormat = OutputFormat.Dw;
                 int maxResponse = 0;
@@ -146,6 +158,14 @@ TabulateSmarterTestResults.exe -i testresults.zip -os studentresults.csv -oi ite
                             }
                             break;
 
+			case "-didcsv":
+			    {
+				++i;
+                                if (i >= args.Length) throw new ArgumentException("Invalid command line. '-didcsv' needs file arg.");
+				didcsv = args[i];
+			    }
+			    break;
+
                         case "-did":
                             {
                                 ++i;
@@ -183,6 +203,7 @@ TabulateSmarterTestResults.exe -i testresults.zip -os studentresults.csv -oi ite
                             break;
 
                         case "-fmt":
+			    Console.WriteLine("WTF");
                             ++i;
                             if (i >= args.Length) throw new ArgumentException("Invalid command line. '-fmt' option not followed by format type.");
                             switch (args[i])
@@ -213,8 +234,50 @@ TabulateSmarterTestResults.exe -i testresults.zip -os studentresults.csv -oi ite
                 if (help || args.Length == 0)
                 {
                     Console.WriteLine(sSyntax);
-                }
+                } else if (didcsv != "") {
+		  	var reader = new StreamReader(File.OpenRead(didcsv));	
 
+                       SHA1 sha = new SHA1CryptoServiceProvider();
+                       byte[] pfb = UTF8NoByteOrderMark.GetBytes("smarter");
+                       byte[] m_hashKey = sha.ComputeHash(pfb);
+
+
+			List<string> listA = new List<string>();
+    			//List<string> listB = new List<string>();
+    			while (!reader.EndOfStream)
+    			{
+        			var line = reader.ReadLine();
+				listA.Add(line);
+        			//var values = line.Split(',');
+
+        			//listA.Add(values[0]);
+        			//listB.Add(values[1]);
+    			}
+
+			foreach (string l in listA) {
+				//Console.WriteLine(l);
+        			var values = l.Split(',');
+				if (values[0] == "State") {
+					Console.WriteLine(l);
+					continue;
+				}
+	                	HMACSHA1 hmac = new HMACSHA1(m_hashKey);
+				//Console.WriteLine(values[10]);
+                		byte[] bid = UTF8NoByteOrderMark.GetBytes(values[10]);
+                		byte[] hash = hmac.ComputeHash(bid);
+                		string new10 = ByteArrayToHexString(hash);
+				values[9] = ""; //fname
+				values[8] = ""; //mname
+				values[7] = ""; //lname
+				values[14] = ""; //bday
+				values[10] = new10; //ssid
+				values[11] = new10; //altssid
+				string newline = string.Join(",", values);
+				Console.WriteLine(newline);
+
+			}
+
+		}
                 else
                 {
                     if (inputFilenames.Count == 0 || (osFilename == null && oiFilename == null)) throw new ArgumentException("Invalid command line. Use '-h' for syntax help");
